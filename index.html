@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>노스팜CC 매출 데이터보드</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="kicker">노스팜CC</p>
+        <h1>일매출 등록 &amp; 연도별 합산 데이터보드</h1>
+        <p class="subtext">
+          식음료 매출 기록을 표준화하고 마감/해제를 권한 기반으로 관리합니다.
+        </p>
+      </div>
+      <div class="status-card">
+        <div>
+          <span class="label">현재 역할</span>
+          <strong id="roleLabel">일반 사용자</strong>
+        </div>
+        <button id="adminToggle" class="secondary">관리자 모드 활성화</button>
+        <small class="hint">관리자만 마감 해제 및 삭제 제한 해제 가능</small>
+      </div>
+    </header>
+
+    <main>
+      <section class="card">
+        <h2>일매출 등록</h2>
+        <form id="salesForm" class="grid-form">
+          <label>
+            날짜
+            <input type="date" id="saleDate" required />
+          </label>
+          <label>
+            구분
+            <select id="saleLocation" required>
+              <option value="">선택하세요</option>
+              <option value="클럽하우스">클럽하우스</option>
+              <option value="스타트하우스">스타트하우스</option>
+              <option value="동그늘집">동그늘집</option>
+              <option value="서그늘집">서그늘집</option>
+            </select>
+          </label>
+          <label>
+            매출 금액 (원)
+            <input type="number" id="saleAmount" min="0" step="100" placeholder="예: 120000" required />
+          </label>
+          <label class="full">
+            메모
+            <textarea id="saleMemo" rows="2" placeholder="특이사항, 행사, 할인 내역 등"></textarea>
+          </label>
+          <div class="actions full">
+            <button type="submit">매출 등록</button>
+            <button type="button" id="closeDay" class="danger">일매출 마감</button>
+          </div>
+        </form>
+        <div class="notice">
+          <h3>운영 안내</h3>
+          <ul>
+            <li>마감된 날짜는 수정이 불가합니다. (관리자만 해제 가능)</li>
+            <li>삭제는 기본적으로 마감 전만 가능하며, 감사 로그에 기록됩니다.</li>
+            <li>모든 입력은 브라우저에 안전하게 저장되며, 관리자는 별도 인증을 거칩니다.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="section-header">
+          <h2>일매출 현황</h2>
+          <div class="legend">
+            <span class="pill">열림</span>
+            <span class="pill closed">마감</span>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>날짜</th>
+                <th>구분</th>
+                <th class="right">금액</th>
+                <th>메모</th>
+                <th>상태</th>
+                <th>관리</th>
+              </tr>
+            </thead>
+            <tbody id="dailyTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="section-header">
+          <h2>연도별 합산</h2>
+          <div class="filter">
+            <label>
+              기준 연도
+              <select id="yearFilter"></select>
+            </label>
+          </div>
+        </div>
+        <div class="summary-grid">
+          <div class="summary-card">
+            <span>총 합계</span>
+            <strong id="yearTotal">₩0</strong>
+            <small>마감/미마감 전체 합계</small>
+          </div>
+          <div class="summary-card">
+            <span>마감 완료</span>
+            <strong id="closedTotal">₩0</strong>
+            <small>마감된 일자 합계</small>
+          </div>
+          <div class="summary-card">
+            <span>미마감</span>
+            <strong id="openTotal">₩0</strong>
+            <small>마감 전 합계</small>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>구분</th>
+                <th class="right">합계</th>
+                <th class="right">마감 합계</th>
+                <th class="right">미마감 합계</th>
+              </tr>
+            </thead>
+            <tbody id="yearlyTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card highlight">
+        <h2>보안 &amp; 운영 체크리스트</h2>
+        <div class="checklist">
+          <label><input type="checkbox" checked disabled /> 관리자 인증을 통해 마감 해제 권한 통제</label>
+          <label><input type="checkbox" checked disabled /> 일매출 수정/삭제 감사 로그 기록</label>
+          <label><input type="checkbox" checked disabled /> 입력값 유효성 검사 및 금액 범위 제한</label>
+          <label><input type="checkbox" checked disabled /> 브라우저 로컬 저장(LocalStorage) 및 권한 분리</label>
+          <label><input type="checkbox" disabled /> 서버 전용 TLS 및 방화벽 적용 (백엔드 구축 시 권장)</label>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>© 2024 노스팜CC 식음료 매출 시스템 - 버전 0.1</p>
+    </footer>
+
+    <dialog id="adminDialog">
+      <form method="dialog" class="dialog-form">
+        <h3>관리자 인증</h3>
+        <label>
+          관리자 비밀번호
+          <input type="password" id="adminPassword" placeholder="관리자 비밀번호 입력" required />
+        </label>
+        <div class="actions">
+          <button value="cancel" class="secondary">취소</button>
+          <button value="confirm">확인</button>
+        </div>
+        <small class="hint">기본 비밀번호는 admin2024 입니다. (운영 시 변경 필수)</small>
+      </form>
+    </dialog>
+
+    <dialog id="logDialog">
+      <div class="dialog-form">
+        <h3>감사 로그</h3>
+        <ul id="auditLog"></ul>
+        <form method="dialog" class="actions">
+          <button value="close">닫기</button>
+        </form>
+      </div>
+    </dialog>
+
+    <script src="app.js"></script>
+  </body>
+</html>
