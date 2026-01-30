@@ -1,89 +1,120 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Welcome to Firebase Hosting</title>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>노스팜CC 매출 데이터보드</title>
+    <link rel="stylesheet" href="styles.css">
+    <script type="module" src="main.js"></script>
+</head>
+<body>
+    <header class="app-header">
+        <div>
+            <p class="kicker">North Farm CC F&B</p>
+            <h1>매출 데이터보드</h1>
+            <p class="subtext">일일 매출을 등록하고 연간 현황을 확인하세요.</p>
+        </div>
+        <div class="actions">
+            <custom-button id="logButton" label="변경 기록 보기" variant="secondary"></custom-button>
+            <custom-button id="logoutButton" label="로그아웃" variant="danger"></custom-button>
+            <small>사용자: <span id="roleLabel"></span></small>
+        </div>
+    </header>
 
-    <!-- update the version number as needed -->
-    <script defer src="/__/firebase/12.8.0/firebase-app-compat.js"></script>
-    <!-- include only the Firebase features as you need -->
-    <script defer src="/__/firebase/12.8.0/firebase-auth-compat.js"></script>
-    <script defer src="/__/firebase/12.8.0/firebase-database-compat.js"></script>
-    <script defer src="/__/firebase/12.8.0/firebase-firestore-compat.js"></script>
-    <script defer src="/__/firebase/12.8.0/firebase-functions-compat.js"></script>
-    <script defer src="/__/firebase/12.8.0/firebase-messaging-compat.js"></script>
-    <script defer src="/__/firebase/12.8.0/firebase-storage-compat.js"></script>
-    <script defer src="/__/firebase/12.8.0/firebase-analytics-compat.js"></script>
-    <script defer src="/__/firebase/12.8.0/firebase-remote-config-compat.js"></script>
-    <script defer src="/__/firebase/12.8.0/firebase-performance-compat.js"></script>
-    <!-- 
-      initialize the SDK after all desired features are loaded, set useEmulator to false
-      to avoid connecting the SDK to running emulators.
-    -->
-    <script defer src="/__/firebase/init.js?useEmulator=true"></script>
+    <main>
+        <section class="card">
+            <h2>일매출 등록</h2>
+            <form id="salesForm" class="grid-form">
+                <input type="date" id="saleDate" required>
+                <select id="saleLocation">
+                    <option>클럽하우스</option>
+                    <option>스타트하우스</option>
+                    <option>동그늘집</option>
+                    <option>서그늘집</option>
+                </select>
+                <input type="number" id="saleAmount" placeholder="매출액" required>
+                <textarea id="saleMemo" placeholder="메모 (선택)" class="full"></textarea>
+                <custom-button type="submit" class="full" label="매출 저장"></custom-button>
+            </form>
+            <div class="actions" style="margin-top: 16px;">
+                 <custom-button id="closeDay" label="선택 날짜 마감" variant="danger"></custom-button>
+            </div>
+        </section>
 
-    <style media="screen">
-      body { background: #ECEFF1; color: rgba(0,0,0,0.87); font-family: Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; }
-      #message { background: white; max-width: 360px; margin: 100px auto 16px; padding: 32px 24px; border-radius: 3px; }
-      #message h2 { color: #ffa100; font-weight: bold; font-size: 16px; margin: 0 0 8px; }
-      #message h1 { font-size: 22px; font-weight: 300; color: rgba(0,0,0,0.6); margin: 0 0 16px;}
-      #message p { line-height: 140%; margin: 16px 0 24px; font-size: 14px; }
-      #message a { display: block; text-align: center; background: #039be5; text-transform: uppercase; text-decoration: none; color: white; padding: 16px; border-radius: 4px; }
-      #message, #message a { box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24); }
-      #load { color: rgba(0,0,0,0.4); text-align: center; font-size: 13px; }
-      @media (max-width: 600px) {
-        body, #message { margin-top: 0; background: white; box-shadow: none; }
-        body { border-top: 16px solid #ffa100; }
-      }
-    </style>
-  </head>
-  <body>
-    <div id="message">
-      <h2>Welcome</h2>
-      <h1>Firebase Hosting Setup Complete</h1>
-      <p>You're seeing this because you've successfully setup Firebase Hosting. Now it's time to go build something extraordinary!</p>
-      <a target="_blank" href="https://firebase.google.com/docs/hosting/">Open Hosting Documentation</a>
-    </div>
-    <p id="load">Firebase SDK Loading&hellip;</p>
+        <section class="card">
+            <h2>일매출 현황</h2>
+            <p>최근 등록된 매출 내역입니다. 마감된 날짜의 데이터는 관리자만 삭제할 수 있습니다.</p>
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>날짜</th>
+                            <th>구분</th>
+                            <th class="right">금액</th>
+                            <th>메모</th>
+                            <th>상태</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="dailyTable">
+                        <!-- Data will be rendered here by ui.js -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
 
-    <script>
-      document.addEventListener('DOMContentLoaded', function() {
-        const loadEl = document.querySelector('#load');
-        // // 🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥
-        // // The Firebase SDK is initialized and available here!
-        //
-        // firebase.auth().onAuthStateChanged(user => { });
-        // firebase.database().ref('/path/to/ref').on('value', snapshot => { });
-        // firebase.firestore().doc('/foo/bar').get().then(() => { });
-        // firebase.functions().httpsCallable('yourFunction')().then(() => { });
-        // firebase.messaging().requestPermission().then(() => { });
-        // firebase.storage().ref('/path/to/ref').getDownloadURL().then(() => { });
-        // firebase.analytics(); // call to activate
-        // firebase.analytics().logEvent('tutorial_completed');
-        // firebase.performance(); // call to activate
-        //
-        // // 🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥
+        <section class="card full">
+            <h2>연간 매출 요약</h2>
+            <div class="actions">
+                <select id="yearFilter"></select>
+            </div>
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <span>총 매출</span>
+                    <strong id="yearTotal">0</strong>
+                </div>
+                <div class="summary-card" style="border-color: var(--success);">
+                    <span>마감 매출</span>
+                    <strong id="closedTotal">0</strong>
+                </div>
+                <div class="summary-card" style="border-color: var(--danger);">
+                    <span>미마감 매출</span>
+                    <strong id="openTotal">0</strong>
+                </div>
+            </div>
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>구분</th>
+                            <th class="right">총 매출</th>
+                            <th class="right">마감 매출</th>
+                            <th class="right">미마감 매출</th>
+                        </tr>
+                    </thead>
+                    <tbody id="yearlyTable">
+                        <!-- Data will be rendered here by ui.js -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
 
-        try {
-          let app = firebase.app();
-          let features = [
-            'auth', 
-            'database', 
-            'firestore',
-            'functions',
-            'messaging', 
-            'storage', 
-            'analytics', 
-            'remoteConfig',
-            'performance',
-          ].filter(feature => typeof app[feature] === 'function');
-          loadEl.textContent = `Firebase SDK loaded with ${features.join(', ')}`;
-        } catch (e) {
-          console.error(e);
-          loadEl.textContent = 'Error loading the Firebase SDK, check the console.';
-        }
-      });
-    </script>
-  </body>
+    <footer class="app-footer">
+        <p>
+            Built by <a href="https://github.com/yorungyi" target="_blank">yorungyi</a>. 
+            View the source code on <a href="https://github.com/yorungyi/PRODUCT-BUILDER-challenge" target="_blank">GitHub</a>.
+        </p>
+    </footer>
+
+    <dialog id="logDialog">
+        <div class="dialog-form">
+            <h3>최근 변경 기록 (15개)</h3>
+            <ul id="auditLog"></ul>
+            <form method="dialog">
+                <custom-button label="닫기" variant="secondary" style="margin-top: 16px;"></custom-button>
+            </form>
+        </div>
+    </dialog>
+</body>
 </html>

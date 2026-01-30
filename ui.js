@@ -1,5 +1,7 @@
-import { state, isDateClosed, reopenDate, deleteEntry } from './store.js';
+import { state, reopenDate, deleteEntry } from './store.js';
+import { isAdmin, getCurrentUser } from './auth.js';
 
+// DOM Elements
 const dailyTable = document.getElementById("dailyTable");
 const yearFilter = document.getElementById("yearFilter");
 const yearlyTable = document.getElementById("yearlyTable");
@@ -7,9 +9,9 @@ const yearTotal = document.getElementById("yearTotal");
 const closedTotal = document.getElementById("closedTotal");
 const openTotal = document.getElementById("openTotal");
 const roleLabel = document.getElementById("roleLabel");
-const adminToggle = document.getElementById("adminToggle");
 const auditLog = document.getElementById("auditLog");
 const logDialog = document.getElementById("logDialog");
+const closeDayButton = document.getElementById("closeDay");
 
 const locations = ["클럽하우스", "스타트하우스", "동그늘집", "서그늘집"];
 
@@ -28,9 +30,8 @@ function renderDaily() {
         return;
     }
 
-    // 데이터가 이미 store.js에서 정렬되어 오므로 추가 정렬 필요 없음
     state.entries.forEach(entry => {
-        const closed = isDateClosed(entry.date);
+        const closed = state.closedDates[entry.date];
         const row = document.createElement("tr");
         row.innerHTML = `
             <td>${entry.date}</td>
@@ -43,17 +44,20 @@ function renderDaily() {
 
         const actionsCell = row.querySelector(".actions-cell");
 
-        const deleteButton = document.createElement("button");
-        deleteButton.textContent = "삭제";
-        deleteButton.className = "danger";
-        deleteButton.disabled = closed && !state.isAdmin;
+        const deleteButton = document.createElement('custom-button');
+        deleteButton.setAttribute('label', '삭제');
+        deleteButton.setAttribute('variant', 'danger');
+        
+        if (closed && !isAdmin()) {
+            deleteButton.setAttribute('disabled', '');
+        }
         deleteButton.addEventListener("click", () => deleteEntry(entry.id));
         actionsCell.appendChild(deleteButton);
 
-        if (closed && state.isAdmin) {
-            const reopenButton = document.createElement("button");
-            reopenButton.textContent = "마감 해제";
-            reopenButton.className = "secondary";
+        if (closed && isAdmin()) {
+            const reopenButton = document.createElement('custom-button');
+            reopenButton.setAttribute('label', '마감 해제');
+            reopenButton.setAttribute('variant', 'secondary');
             reopenButton.addEventListener("click", () => reopenDate(entry.date));
             actionsCell.appendChild(reopenButton);
         }
@@ -67,7 +71,7 @@ function renderYearOptions() {
     if (years.size === 0) {
         years.add(new Date().getFullYear());
     }
-    const currentYear = yearFilter.value;
+    const currentYear = yearFilter.value || new Date().getFullYear();
     yearFilter.innerHTML = "";
     [...years].sort((a, b) => b - a).forEach(year => {
         const option = document.createElement("option");
@@ -89,7 +93,7 @@ function renderYearSummary() {
     const totals = locations.map(loc => {
         const locEntries = filtered.filter(entry => entry.location === loc);
         const total = locEntries.reduce((sum, entry) => sum + entry.amount, 0);
-        const closed = locEntries.filter(entry => isDateClosed(entry.date)).reduce((sum, entry) => sum + entry.amount, 0);
+        const closed = locEntries.filter(entry => state.closedDates[entry.date]).reduce((sum, entry) => sum + entry.amount, 0);
         const open = total - closed;
         return { loc, total, closed, open };
     });
@@ -115,27 +119,40 @@ function renderYearSummary() {
     openTotal.textContent = formatCurrency(totalOpen);
 }
 
-function renderRole() {
-    roleLabel.textContent = state.isAdmin ? "관리자" : "일반 사용자";
-    adminToggle.textContent = state.isAdmin ? "관리자 모드 해제" : "관리자 모드 활성화";
+function renderPermissions() {
+    const user = getCurrentUser();
+    if (user) {
+        const roleText = user.role === 'admin' ? '관리자' : '스태프';
+        roleLabel.textContent = `${user.username} (${roleText})`;
+    }
+
+    if (!isAdmin()) {
+        closeDayButton.setAttribute('disabled', '');
+    } else {
+        closeDayButton.removeAttribute('disabled');
+    }
 }
 
 export function openLog() {
     auditLog.innerHTML = "";
-    // Firestore에서 가져온 감사 로그 사용
+    if (!state.audit || state.audit.length === 0) {
+        auditLog.innerHTML = '<li>기록이 없습니다.</li>';
+        logDialog.showModal();
+        return;
+    }
     state.audit.slice(0, 15).forEach(item => {
         const li = document.createElement("li");
-        // Firestore timestamp를 JavaScript Date 객체로 변환
         const timestamp = item.timestamp.toDate ? item.timestamp.toDate().toLocaleString('ko-KR') : new Date(item.timestamp).toLocaleString('ko-KR');
-        li.textContent = `${timestamp} - ${item.action}: ${item.detail}`;
+        li.textContent = `${timestamp} - [${item.user}] ${item.action}: ${item.detail}`;
         auditLog.appendChild(li);
     });
     logDialog.showModal();
 }
 
 export function renderAll() {
+    if (!state.user) return;
     renderDaily();
     renderYearOptions();
     renderYearSummary();
-    renderRole();
+    renderPermissions();
 }

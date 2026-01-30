@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로그인 - 노스팜CC 매출 데이터보드</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div style="max-width: 400px; margin: 100px auto;">
+        <div class="card">
+            <header class="app-header" style="border-bottom: none; padding-bottom: 0;">
+                <div>
+                    <p class="kicker">North Farm CC F&B</p>
+                    <h1>로그인</h1>
+                </div>
+            </header>
+            <main style="margin-top: 24px;">
+                <form id="loginForm" class="grid-form">
+                    <input type="text" id="username" placeholder="아이디" required class="full">
+                    <input type="password" id="password" placeholder="비밀번호" required class="full">
+                    <custom-button type="submit" label="로그인" class="full"></custom-button>
+                </form>
+                <p id="error-message" style="color: var(--danger); margin-top: 16px; text-align: center; display: none;"></p>
+            </main>
+        </div>
+    </div>
+    <script type="module" src="login.js"></script>
+    <script type="module" src="Button.js"></script> <!-- 웹 컴포넌트 임포트 -->
+</body>
+</html>

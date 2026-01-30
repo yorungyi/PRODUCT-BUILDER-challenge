@@ -1,16 +1,12 @@
-import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch, limit } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 import { renderAll } from './ui.js';
-
-const ADMIN_KEY = "northfarm-admin";
-const DEFAULT_ADMIN_PASSWORD = "admin2024";
+import { getCurrentUser, isAdmin } from './auth.js';
 
 // DOM Elements
 const saleDate = document.getElementById("saleDate");
 const saleLocation = document.getElementById("saleLocation");
 const saleAmount = document.getElementById("saleAmount");
 const saleMemo = document.getElementById("saleMemo");
-const adminPassword = document.getElementById("adminPassword");
-const adminDialog = document.getElementById("adminDialog");
 
 let db;
 export function setDB(database) {
@@ -20,9 +16,13 @@ export function setDB(database) {
 export const state = {
     entries: [],
     closedDates: {},
-    isAdmin: localStorage.getItem(ADMIN_KEY) === "true",
-    audit: [], // 감사 로그는 클라이언트 측에서만 간단히 관리
+    user: null, // To be populated on init
+    audit: [],
 };
+
+export function initStore() {
+    state.user = getCurrentUser();
+}
 
 // Firestore 데이터 실시간 수신
 export async function listenForData() {
@@ -46,18 +46,17 @@ export async function listenForData() {
     const auditQuery = query(collection(db, "audit"), orderBy("timestamp", "desc"), limit(200));
     onSnapshot(auditQuery, (snapshot) => {
         state.audit = snapshot.docs.map(doc => doc.data());
-        // 감사 로그 UI는 필요 시 별도 렌더링
+        // The UI for the audit log is rendered on demand
     });
 }
 
-
 function addAudit(action, detail) {
-    if (!db) return;
+    if (!db || !state.user) return;
     addDoc(collection(db, "audit"), {
         action,
         detail,
         timestamp: new Date(),
-        user: state.isAdmin ? "admin" : "user",
+        user: state.user.username,
     });
 }
 
@@ -74,8 +73,8 @@ function validateEntry() {
         alert("매출 금액은 0 이상이어야 합니다.");
         return false;
     }
-    if (isDateClosed(saleDate.value)) {
-        alert("마감된 날짜입니다. 관리자만 해제할 수 있습니다.");
+    if (isDateClosed(saleDate.value) && !isAdmin()) {
+        alert("마감된 날짜입니다. 관리자만 등록할 수 있습니다.");
         return false;
     }
     return true;
@@ -96,7 +95,7 @@ export async function handleFormSubmit(event) {
         await addDoc(collection(db, "sales"), entry);
         addAudit("등록", `${entry.date} ${entry.location} ${new Intl.NumberFormat("ko-KR", { style: "currency", currency: "KRW" }).format(entry.amount)}`);
         document.getElementById("salesForm").reset();
-        saleDate.value = entry.date; // 날짜 유지
+        saleDate.value = entry.date; // Keep the date for convenience
     } catch (e) {
         console.error("Error adding document: ", e);
         alert("매출 등록 중 오류가 발생했습니다.");
@@ -109,6 +108,10 @@ export async function handleCloseDay() {
         alert("마감할 날짜를 선택하세요.");
         return;
     }
+    if (!isAdmin()) {
+        alert("관리자만 마감할 수 있습니다.");
+        return;
+    }
     if (isDateClosed(date)) {
         alert("이미 마감된 날짜입니다.");
         return;
@@ -119,17 +122,8 @@ export async function handleCloseDay() {
     }
 
     try {
-        const batch = writeBatch(db);
         const closedDateRef = doc(db, "closedDates", date);
-        batch.set(closedDateRef, { closedAt: new Date().toISOString(), closedBy: state.isAdmin ? "admin" : "user" });
-
-        // 해당 날짜의 모든 매출 항목에 'closed' 플래그 추가 (선택적)
-        // state.entries.filter(e => e.date === date).forEach(entry => {
-        //     const entryRef = doc(db, "sales", entry.id);
-        //     batch.update(entryRef, { closed: true });
-        // });
-
-        await batch.commit();
+        await setDoc(closedDateRef, { closedAt: new Date().toISOString(), closedBy: state.user.username });
         addAudit("마감", `${date} 일매출 마감`);
     } catch (e) {
         console.error("Error closing day: ", e);
@@ -138,7 +132,7 @@ export async function handleCloseDay() {
 }
 
 export async function reopenDate(date) {
-    if (!state.isAdmin || !db) {
+    if (!isAdmin() || !db) {
         alert("관리자만 마감 해제가 가능합니다.");
         return;
     }
@@ -155,7 +149,7 @@ export async function deleteEntry(id) {
     const entry = state.entries.find(item => item.id === id);
     if (!entry || !db) return;
 
-    if (isDateClosed(entry.date) && !state.isAdmin) {
+    if (isDateClosed(entry.date) && !isAdmin()) {
         alert("마감된 매출은 관리자만 삭제할 수 있습니다.");
         return;
     }
@@ -169,34 +163,6 @@ export async function deleteEntry(id) {
         console.error("Error deleting document: ", e);
         alert("삭제 중 오류가 발생했습니다.");
     }
-}
-
-export function handleAdminToggle() {
-    if (state.isAdmin) {
-        state.isAdmin = false;
-        localStorage.setItem(ADMIN_KEY, "false");
-        renderAll();
-        return;
-    }
-    adminPassword.value = "";
-    adminDialog.showModal();
-}
-
-adminDialog.addEventListener("close", () => {
-    if (adminDialog.returnValue !== "confirm") return;
-    if (adminPassword.value !== DEFAULT_ADMIN_PASSWORD) {
-        alert("비밀번호가 일치하지 않습니다.");
-        return;
-    }
-    state.isAdmin = true;
-    localStorage.setItem(ADMIN_KEY, "true");
-    addAudit("관리자 로그인", "관리자 모드 활성화");
-    renderAll();
-});
-
-
-export function setInitialDate() {
-    saleDate.valueAsDate = new Date();
 }
 
 export function handleYearFilterChange() {

@@ -85,6 +85,24 @@ main {
   padding-bottom: 24px;
 }
 
+.app-footer {
+    text-align: center;
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+}
+
+.app-footer a {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.app-footer a:hover {
+    text-decoration: underline;
+}
+
+
 .kicker {
   font-weight: 600;
   color: var(--accent);
